@@ -1,4 +1,4 @@
-import streamlit as st
+import gradio as gr
 import numpy as np
 from PIL import Image
 import sys
@@ -10,56 +10,51 @@ from predict import predict
 from treatment_advice import get_advice
 from gradcam import save_gradcam
 
-st.set_page_config(
-    page_title="KisanAI - Crop Disease Detection",
-    page_icon="🌿",
-    layout="centered"
-)
-
-st.title("🌿 KisanAI")
-st.subheader("Crop Disease Detection for Indian Farmers")
-st.write("फसल रोग पहचान प्रणाली | Upload a leaf photo to get instant diagnosis")
-
-uploaded_file = st.file_uploader(
-    "Upload a leaf image",
-    type=["jpg", "jpeg", "png"]
-)
-
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Leaf", use_column_width=True)
-
+def analyse_leaf(image):
     temp_path = "temp_leaf.jpg"
     image.save(temp_path)
+    
+    disease, confidence = predict(temp_path)
+    advice = get_advice(disease)
+    gradcam_path = save_gradcam(temp_path, "gradcam_output.jpg")
+    
+    result = f"""
+## 🌿 Diagnosis Result
 
-    with st.spinner("Analysing your crop..."):
-        disease, confidence = predict(temp_path)
-        advice = get_advice(disease)
-        gradcam_path = save_gradcam(temp_path, "gradcam_output.jpg")
+**Disease Detected:** {advice['english_name']}
+**रोग:** {advice['hindi_name']}
+**Confidence:** {confidence:.1f}%
 
-    st.success("Analysis Complete!")
+---
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Disease Detected", advice['english_name'])
-    with col2:
-        st.metric("Confidence", f"{confidence:.1f}%")
+### 💊 Chemical Treatment
+{advice['chemical']}
 
-    st.markdown(f"### रोग: {advice['hindi_name']}")
+### 🌱 Organic Treatment
+{advice['organic']}
 
-    st.image("gradcam_output.jpg", caption="Grad-CAM: Where the model looked", use_column_width=True)
+### 🛡️ Prevention
+{advice['prevention']}
 
-    st.markdown("---")
-    st.markdown("### 💊 Chemical Treatment")
-    st.info(advice['chemical'])
-
-    st.markdown("### 🌱 Organic Treatment")
-    st.success(advice['organic'])
-
-    st.markdown("### 🛡️ Prevention")
-    st.warning(advice['prevention'])
-
-    st.markdown("### 🇮🇳 Hindi Advice | हिंदी सलाह")
-    st.markdown(f"**{advice['hindi_advice']}**")
-
+### 🇮🇳 Hindi Advice | हिंदी सलाह
+**{advice['hindi_advice']}**
+"""
+    
+    gradcam_img = Image.open(gradcam_path)
     os.remove(temp_path)
+    
+    return result, gradcam_img
+
+demo = gr.Interface(
+    fn=analyse_leaf,
+    inputs=gr.Image(type="pil", label="Upload Leaf Image"),
+    outputs=[
+        gr.Markdown(label="Diagnosis"),
+        gr.Image(label="Grad-CAM: Where the model looked")
+    ],
+    title="🌿 KisanAI - Crop Disease Detection",
+    description="फसल रोग पहचान प्रणाली | Upload a crop leaf photo to get instant disease diagnosis in Hindi and English.",
+    examples=None
+)
+
+demo.launch()

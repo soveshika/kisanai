@@ -1,11 +1,10 @@
-print("Script started")
-
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.applications.efficientnet import preprocess_input
 from PIL import Image
 import json
 import os
+from huggingface_hub import hf_hub_download
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'kisanai_model.h5')
@@ -13,7 +12,24 @@ CLASS_INDICES_PATH = os.path.join(BASE_DIR, 'models', 'class_indices.json')
 
 IMG_SIZE = 224
 
+def download_model():
+    os.makedirs(os.path.join(BASE_DIR, 'models'), exist_ok=True)
+    if not os.path.exists(MODEL_PATH):
+        print("Downloading model from Hugging Face...")
+        hf_hub_download(
+            repo_id="soveshika/kisanai-model",
+            filename="kisanai_model.h5",
+            local_dir=os.path.join(BASE_DIR, 'models')
+        )
+    if not os.path.exists(CLASS_INDICES_PATH):
+        hf_hub_download(
+            repo_id="soveshika/kisanai-model",
+            filename="class_indices.json",
+            local_dir=os.path.join(BASE_DIR, 'models')
+        )
+
 def load_model():
+    download_model()
     model = tf.keras.models.load_model(MODEL_PATH)
     with open(CLASS_INDICES_PATH, 'r') as f:
         class_indices = json.load(f)
